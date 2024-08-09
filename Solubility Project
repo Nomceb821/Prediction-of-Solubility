@@ -1,0 +1,127 @@
+import pandas as pd
+import numpy as np
+import seaborn as sns
+import matplotlib.pyplot as plt
+#LOAD DATASET 
+df = pd.read_csv(r"C:\Users\lenovo\Desktop\Chemistry\solubility.csv")
+
+#CLEANING DATA
+df.dropna(inplace =True)    #remove null values
+df.drop_duplicates(inplace= True)   #remove duplicates
+df_new = df.dropna()        #Removing empty rows with empty cells
+
+#Removing a column I do not need
+df_new.drop('Compound ID', axis=1, inplace=True)
+#print(df_new)
+
+
+#Changing 3 dimensional structure string(SMILES) into numerics
+
+from rdkit import Chem
+from rdkit.Chem import Descriptors
+
+def compute_descriptors(smiles):
+    mol = Chem.MolFromSmiles(smiles)
+    descriptors = {
+        'MolWt': Descriptors.MolWt(mol),               # Molecular Weight
+        'NumHDonors': Descriptors.NumHDonors(mol),     # Number of Hydrogen Bond Donors
+        'NumHAcceptors': Descriptors.NumHAcceptors(mol),# Number of Hydrogen Bond Acceptors
+        'TPSA': Descriptors.TPSA(mol),                 # Topological Polar Surface Area
+        'LogP': Descriptors.MolLogP(mol)               # Octanol-water partition coefficient (LogP)
+    }
+    return descriptors
+
+# Apply the function to compute descriptors
+descriptors_list = df_new['smiles'].apply(compute_descriptors)
+descriptors_df = pd.DataFrame(descriptors_list.tolist())
+
+# Combine the original dataframe with the descriptors dataframe
+df_combined = pd.concat([df_new, descriptors_df], axis=1)
+#print(df_combined)
+
+# Features (molecular descriptors)
+all_features = [
+    'Minimum Degree', 'Molecular Weight', 'Number of H-Bond Donors',
+    'Number of Rings', 'Number of Rotatable Bonds', 'Polar Surface Area',
+    'MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP'
+]
+# Target variable (solubility)
+X = df_combined[all_features].values
+y = df_combined['measured log solubility in mols per litre'].values
+
+#PREPROCESSING THE DATA 
+from sklearn.model_selection import train_test_split
+X_train, X_test, y_train, y_test = train_test_split(X, y, test_size= 0.2,  random_state= 42)
+
+
+#TRAINING THE MODEL
+from sklearn.ensemble import RandomForestRegressor
+rfr_model = RandomForestRegressor(n_estimators= 100, random_state=42)
+rfr_model.fit(X_train, y_train)
+rfr_model_pred= rfr_model.predict(X_test)
+
+from sklearn.metrics import mean_squared_error, r2_score
+rfr_mse = mean_squared_error(y_test, rfr_model_pred)
+print(f'Mean Squared Error of Random Forest Regression: {rfr_mse}')
+
+# Calculate RMSE
+rfr_rmse = np.sqrt(rfr_mse)
+print(f'Root Mean Squared Error of Random Forest Regression: {rfr_rmse:.2f}')
+
+# R-squared
+rfr_r2 = r2_score(y_test, rfr_model_pred)
+print(f'R-squared of Random Forest Regression: {rfr_r2}')
+
+
+#Using vector Support Machine
+from sklearn.svm import SVR
+svm_model= SVR(kernel='rbf', C=100, gamma=0.1, epsilon=0.1)
+svm_model.fit(X_train, y_train)
+svm_model_pred = svm_model.predict(X_test)
+
+
+svm_mse = mean_squared_error(y_test, svm_model_pred)
+print(f'Mean Squared Error of SVM: {svm_mse}')
+
+# Calculate RMSE
+svm_rmse = np.sqrt(svm_mse)
+print(f'Root Mean Squared Error of SVM: {svm_rmse:.2f}')
+
+# R-squared
+svm_r2 = r2_score(y_test, svm_model_pred)
+print(f'R-squared of SVM: {svm_r2}')
+
+importances = rfr_model.feature_importances_
+
+# Get the feature names 
+feature_names =  [
+    'Minimum Degree', 'Molecular Weight', 'Number of H-Bond Donors',
+    'Number of Rings', 'Number of Rotatable Bonds', 'Polar Surface Area',
+    'MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP'
+]
+
+# Pair the feature names with their importance scores
+feature_importance_df = pd.DataFrame({
+    'Feature': feature_names,
+    'Importance': importances
+})
+
+#VISUALIZING THE FEATURE IMPORTANCE
+
+# Plotting the feature importance
+plt.figure(figsize=(10, 6))
+plt.barh(feature_importance_df['Feature'], feature_importance_df['Importance'], color='pink')
+plt.xlabel('Feature Importance')
+plt.title('Feature Importance in Random Forest Model')
+plt.gca().invert_yaxis()  # To have the most important feature at the top
+plt.show()
+
+# Scatter plot for predicted solubility vs meausured solubility
+plt.figure(figsize=(10, 6))
+sns.scatterplot(x=df_new['measured log solubility in mols per litre'], y=df_combined['LogP'])
+plt.axhline(0, color='black', linewidth=1)
+plt.axvline(0, color='black', linewidth=1)
+plt.xlabel('Measured log solubility in mols per litre')
+plt.ylabel('LogP')
+plt.title('Represent the measured Log Solubility and predicted solubility')
+plt.show()
