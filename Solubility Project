@@ -40,13 +40,9 @@ df_combined = pd.concat([df_new, descriptors_df], axis=1)
 #print(df_combined)
 
 # Features (molecular descriptors)
-all_features = [
-    'Minimum Degree', 'Molecular Weight', 'Number of H-Bond Donors',
-    'Number of Rings', 'Number of Rotatable Bonds', 'Polar Surface Area',
-    'MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP'
-]
+
 # Target variable (solubility)
-X = df_combined[all_features].values
+X = df_combined[['MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP']].values
 y = df_combined['measured log solubility in mols per litre'].values
 
 #PREPROCESSING THE DATA 
@@ -94,11 +90,7 @@ print(f'R-squared of SVM: {svm_r2}')
 importances = rfr_model.feature_importances_
 
 # Get the feature names 
-feature_names =  [
-    'Minimum Degree', 'Molecular Weight', 'Number of H-Bond Donors',
-    'Number of Rings', 'Number of Rotatable Bonds', 'Polar Surface Area',
-    'MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP'
-]
+feature_names =  ['MolWt', 'NumHDonors', 'NumHAcceptors', 'TPSA', 'LogP]
 
 # Pair the feature names with their importance scores
 feature_importance_df = pd.DataFrame({
